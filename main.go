@@ -9,6 +9,7 @@ import (
 	"github.com/Tinkerforge/go-api-bindings/stepper_brick"
 	"math"
 	"strconv"
+	"strings"
 )
 
 const ADDR string = "localhost:4223"
@@ -16,11 +17,11 @@ const DBUID = "mvi"
 const IO16UID = "gqN"
 const HOURUID = "5Wqtru"
 
-const STEP = -184
+const STEP = -187
 
 const ZERO uint8 = 0b11000011
-const ONE uint8 =  0b11100001
-const TWO uint8 =  0b11100000
+const ONE uint8 = 0b11100001
+const TWO uint8 = 0b11100000
 const FOUR uint8 = 0b11111110
 const SIX uint8 = 0b11111101
 const BLUE uint8 = 0b11010101
@@ -28,6 +29,8 @@ const BLUE uint8 = 0b11010101
 var hourRunning = false
 
 func main() {
+
+	fmt.Println(hour["b"])
 
 	ipcon := ipconnection.New()
 	defer ipcon.Close()
@@ -56,8 +59,12 @@ func main() {
 		if buttonR == dual_button_v2_bricklet.ButtonStatePressed {
 			fmt.Println("Right Button: Pressed")
 			if !hourRunning {
-				toggleHourRunning()
-				go rotateHourToPosition(&io, &hourstepper, SIX)
+				// toggleHourRunning()
+				//go rotateHourToPosition(&io, &hourstepper, SIX)
+
+				// Check Hour on button press
+				go rotateToNextPosition('a', &io, &hourstepper)
+
 			}
 		} else if buttonR == dual_button_v2_bricklet.ButtonStateReleased {
 			fmt.Println("Right Button: Released")
@@ -94,6 +101,25 @@ func btod(mask uint8) int {
 		bit0*math.Pow(2, 0))
 }
 
+func rotateToNextPosition(port rune, io *io16_bricklet.IO16Bricklet, stepper *stepper_brick.StepperBrick) {
+	valueMask, _ := io.GetPort(port)
+
+	_ = stepper.Enable()
+
+	for valueMask == 255 {
+		if 255 == valueMask {
+			_ = stepper.DriveBackward()
+			valueMask, _ = io.GetPort(port)
+		} else {
+			_ = stepper.Stop()
+			break
+		}
+	}
+
+	fmt.Printf("Value Mask (Port %s): %b\n", strings.ToUpper(string(port)), valueMask)
+	stepper.Disable()
+}
+
 func rotateHourToPosition(io *io16_bricklet.IO16Bricklet, stepper *stepper_brick.StepperBrick, position uint8) {
 
 	// Make the mask
@@ -108,7 +134,7 @@ func rotateHourToPosition(io *io16_bricklet.IO16Bricklet, stepper *stepper_brick
 
 		if position != valueMaskA {
 			//_ = stepper.SetSteps(-50)
-			_=stepper.DriveBackward()
+			_ = stepper.DriveBackward()
 			valueMaskA, _ = io.GetPort('a')
 		} else {
 			_ = stepper.Stop()
